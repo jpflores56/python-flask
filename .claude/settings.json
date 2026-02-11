@@ -1,0 +1,51 @@
+﻿{
+  "permissions": {
+    "allow": [
+      "Read",
+      "Glob",
+      "Grep",
+      "Bash(git log:*)",
+      "Bash(git status:*)",
+      "Bash(git diff:*)",
+      "Bash(git show:*)",
+      "mcp__linear__list*",
+      "mcp__linear__search*",
+      "mcp__linear__get*",
+      "mcp__github__list*",
+      "mcp__github__get*",
+      "mcp__github__search*"
+    ],
+    "ask": [
+      "Edit",
+      "Write",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "mcp__linear__create*",
+      "mcp__linear__update*",
+      "mcp__linear__add*",
+      "mcp__github__create*",
+      "mcp__github__update*",
+      "mcp__github__add*"
+    ],
+    "deny": [
+      "mcp__linear__delete*",
+      "mcp__linear__archive*",
+      "mcp__linear__remove*",
+      "mcp__github__delete*",
+      "mcp__github__remove*",
+      "Bash(rm:*)",
+      "Bash(rm -rf:*)",
+      "Bash(curl:*)",
+      "Bash(wget:*)",
+      "Bash(sudo:*)",
+      "WebFetch",
+      "Read(~/.ssh/**)",
+      "Read(**/.env)",
+      "Read(**/secrets/**)",
+      "Read(**/.aws/**)"
+    ]
+  },
+  "permissionMode": "default",
+  "enableAllProjectMcpServers": false
+}
