@@ -142,16 +142,10 @@ async def update_task(task_id: int, title: str = None, description: str = None, 
 
 @app.delete("/tasks/{task_id}")
 async def delete_task(task_id: int):
-    """Delete a task
-    
-    CRITICAL BUG: SQL injection vulnerability!
-    """
+    """Delete a task by ID."""
     conn = get_db_connection()
     
-    # SECURITY VULNERABILITY - SQL Injection!
-    # Should use parameterized query like: "DELETE FROM tasks WHERE id = ?", (task_id,)
-    query = f"DELETE FROM tasks WHERE id = {task_id}"
-    conn.execute(query)
+    conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
     conn.commit()
     
     # BUG: Connection never closed
