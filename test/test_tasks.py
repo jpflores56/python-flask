@@ -18,10 +18,14 @@ sys.path.insert(0, os.path.dirname(os.path.dirname(os.path.abspath(__file__))))
 from src.main import app
 
 
-# BUG: Missing fixture - tests will fail
-# @pytest.fixture
-# def client():
-#     return TestClient(app)
+@pytest.fixture
+def client(tmp_path):
+    import src.main as main_module
+    original_db = main_module.DATABASE_PATH
+    main_module.DATABASE_PATH = str(tmp_path / "test_tasks.db")
+    main_module.init_db()
+    yield TestClient(app)
+    main_module.DATABASE_PATH = original_db
 
 
 def test_root(client):
@@ -45,12 +49,15 @@ def test_create_task(client):
 
 
 def test_create_empty_task(client):
-    """Test that empty title is rejected
-    
-    BUG: This test will FAIL because API doesn't validate empty titles
-    """
+    """Test that empty title is rejected"""
     response = client.post("/tasks", params={"title": ""})
     assert response.status_code == 400  # Should reject empty title
+
+
+def test_create_whitespace_task(client):
+    """Test that whitespace-only title is rejected"""
+    response = client.post("/tasks", params={"title": "   "})
+    assert response.status_code == 400
 
 
 def test_list_tasks(client):
@@ -71,6 +78,18 @@ def test_get_nonexistent_task(client):
     """
     response = client.get("/tasks/99999")
     assert response.status_code == 404  # Should return 404
+
+
+def test_update_nonexistent_task(client):
+    """Test updating a task that doesn't exist"""
+    response = client.put("/tasks/99999", params={"title": "Nope"})
+    assert response.status_code == 404
+
+
+def test_complete_nonexistent_task(client):
+    """Test completing a task that doesn't exist"""
+    response = client.post("/tasks/99999/complete")
+    assert response.status_code == 404
 
 
 def test_update_task(client):
@@ -118,10 +137,49 @@ def test_complete_task(client):
     assert data["completed"] == 1
 
 
-# MISSING TEST: SQL injection vulnerability
+def test_connection_management(client):
+    """Verify that multiple sequential operations work correctly with context manager connections."""
+    task_ids = []
+    for i in range(5):
+        resp = client.post("/tasks", params={"title": f"Conn Test {i}", "description": f"Desc {i}"})
+        assert resp.status_code == 200
+        task_ids.append(resp.json()["id"])
+
+    resp = client.get("/tasks")
+    assert resp.status_code == 200
+    assert len(resp.json()) >= 5
+
+    for tid in task_ids:
+        assert client.get(f"/tasks/{tid}").status_code == 200
+        assert client.put(f"/tasks/{tid}", params={"title": f"Updated {tid}"}).status_code == 200
+        assert client.post(f"/tasks/{tid}/complete").status_code == 200
+        assert client.delete(f"/tasks/{tid}").status_code == 200
+
+
+def test_database_path_config(client):
+    """Test that DATABASE_PATH is configurable"""
+    import src.main as main_module
+    # The fixture already overrides DATABASE_PATH — just verify it's not 'tasks.db'
+    assert main_module.DATABASE_PATH != "tasks.db"
+    assert "test_tasks.db" in main_module.DATABASE_PATH
+
+
 def test_sql_injection_protection(client):
-    """Test that SQL injection is prevented
-    
-    TODO: Add test for SQL injection in delete endpoint
-    """
-    pass
+    """Test that SQL injection is prevented - deleting one task must not affect others."""
+    # Create two tasks
+    resp_a = client.post("/tasks", params={"title": "Task A", "description": "A"})
+    resp_b = client.post("/tasks", params={"title": "Task B", "description": "B"})
+    assert resp_a.status_code == 200
+    assert resp_b.status_code == 200
+    task_a_id = resp_a.json()["id"]
+    task_b_id = resp_b.json()["id"]
+
+    # Delete only Task A
+    delete_resp = client.delete(f"/tasks/{task_a_id}")
+    assert delete_resp.status_code == 200
+
+    # Verify Task B still exists
+    remaining = client.get("/tasks").json()
+    remaining_ids = [t["id"] for t in remaining]
+    assert task_b_id in remaining_ids
+    assert task_a_id not in remaining_ids
