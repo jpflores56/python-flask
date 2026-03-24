@@ -2,6 +2,8 @@
 
 A simple REST API for managing tasks, built with FastAPI.
 
+> **Note:** Despite the repository name `python-flask-main`, this project uses **FastAPI**, not Flask.
+
 ## Features
 
 - Create, read, update, and delete tasks
@@ -31,7 +33,7 @@ pip install -r requirements.txt
 python src/main.py
 
 # Run tests
-pytest tests/
+pytest test/
 ```
 
 ## API Endpoints
@@ -75,12 +77,12 @@ This project is designed for testing Claude Code + MCP workflows:
 
 ## Architecture
 
-```
-src/
-  main.py - FastAPI application with endpoints
-tests/
-  test_tasks.py - Test suite (with intentional failures)
-requirements.txt - Python dependencies
+```mermaid
+graph LR
+    A[HTTP Client] --> B[FastAPI<br>src/main.py]
+    B --> C[(SQLite<br>tasks.db)]
+    D[test/test_tasks.py] -.->|tests| B
+    E[requirements.txt] -.->|dependencies| B
 ```
 
 ## Database Schema
