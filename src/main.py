@@ -2,9 +2,7 @@
 Task Management API - Main application file
 
 KNOWN ISSUES (for demonstration):
-- SQL injection vulnerability in delete_task
 - No validation for empty task titles
-- Duplicate code in CRUD operations
 - Missing error handling
 """
 
@@ -24,6 +22,12 @@ def get_db_connection():
     conn = sqlite3.connect(DATABASE_PATH)
     conn.row_factory = sqlite3.Row
     return conn
+
+
+def _fetch_task_by_id(conn: sqlite3.Connection, task_id: int) -> dict:
+    """Return a single task row as a dict, looked up by primary key."""
+    row = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
+    return dict(row) if row else None
 
 
 def init_db():
@@ -74,12 +78,9 @@ async def get_task(task_id: int):
     """Get a single task by ID"""
     conn = get_db_connection()
     
-    # DUPLICATE CODE - Same pattern as above
-    task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    
     # MISSING ERROR HANDLING - What if task doesn't exist?
     # BUG: Connection never closed
-    return dict(task)
+    return _fetch_task_by_id(conn, task_id)
 
 
 @app.post("/tasks")
@@ -133,25 +134,16 @@ async def update_task(task_id: int, title: str = None, description: str = None, 
     conn.execute(query, params)
     conn.commit()
     
-    # DUPLICATE CODE - Same fetch pattern
-    task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    
     # BUG: Connection never closed
-    return dict(task)
+    return _fetch_task_by_id(conn, task_id)
 
 
 @app.delete("/tasks/{task_id}")
 async def delete_task(task_id: int):
-    """Delete a task
-    
-    CRITICAL BUG: SQL injection vulnerability!
-    """
+    """Delete a task by ID."""
     conn = get_db_connection()
     
-    # SECURITY VULNERABILITY - SQL Injection!
-    # Should use parameterized query like: "DELETE FROM tasks WHERE id = ?", (task_id,)
-    query = f"DELETE FROM tasks WHERE id = {task_id}"
-    conn.execute(query)
+    conn.execute("DELETE FROM tasks WHERE id = ?", (task_id,))
     conn.commit()
     
     # BUG: Connection never closed
@@ -167,12 +159,9 @@ async def complete_task(task_id: int):
     conn.execute("UPDATE tasks SET completed = 1 WHERE id = ?", (task_id,))
     conn.commit()
     
-    # DUPLICATE CODE - Same fetch pattern
-    task = conn.execute("SELECT * FROM tasks WHERE id = ?", (task_id,)).fetchone()
-    
     # MISSING ERROR HANDLING
     # BUG: Connection never closed
-    return dict(task)
+    return _fetch_task_by_id(conn, task_id)
 
 
 if __name__ == "__main__":
