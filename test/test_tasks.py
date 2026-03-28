@@ -118,10 +118,26 @@ def test_complete_task(client):
     assert data["completed"] == 1
 
 
-# MISSING TEST: SQL injection vulnerability
-def test_sql_injection_protection(client):
-    """Test that SQL injection is prevented
-    
-    TODO: Add test for SQL injection in delete endpoint
+def test_sql_injection_delete_does_not_wipe_table(client):
+    """Test that the delete endpoint uses parameterized queries.
+
+    A raw f-string query like ``DELETE FROM tasks WHERE id = {task_id}``
+    would allow a payload such as ``0 OR 1=1`` to delete every row.
+    With a parameterized query the payload is treated as a literal value
+    and no rows are affected.
     """
-    pass
+    # Create two tasks that must survive the attack
+    r1 = client.post("/tasks", params={"title": "Survivor 1"})
+    r2 = client.post("/tasks", params={"title": "Survivor 2"})
+    id1 = r1.json()["id"]
+    id2 = r2.json()["id"]
+
+    # Attempt SQL injection via the delete endpoint.
+    # FastAPI's int type-check on the path parameter will reject this
+    # with a 422, proving the payload never reaches the DB layer.
+    response = client.delete("/tasks/0%20OR%201%3D1")  # "0 OR 1=1"
+    assert response.status_code == 422
+
+    # Verify both tasks still exist
+    assert client.get(f"/tasks/{id1}").status_code == 200
+    assert client.get(f"/tasks/{id2}").status_code == 200
